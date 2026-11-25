@@ -263,6 +263,25 @@ inreplace "build/autoconf.data",
              "NXT_MODULESDIR='#{lib}/unit/modules'"
 ```
 
+### Use `assert_path_exists` instead of `assert_predicate ... :exist?`
+
+Homebrew style check `FormulaAudit/AssertStatements` requires `assert_path_exists`.
+Wrong: `assert_predicate path, :exist?, "message"`
+Right: `assert_path_exists path, "message"`
+
+### Avoid complex ternary operators
+
+Homebrew style check `Homebrew/SimpleTernary` requires `if`/`else` for complex ternaries.
+Wrong: `libphp = OS.mac? ? lib/"libphp.dylib" : lib/"libphp.so"`
+Right:
+```ruby
+if OS.mac?
+  lib/"libphp.dylib"
+else
+  lib/"libphp.so"
+end
+```
+
 ### Prefer `to_s` over string interpolation for single variables
 
 Homebrew style check `Style/RedundantInterpolation` requires `to_s` for single variable interpolation.
@@ -280,6 +299,40 @@ end
 ```
 args << "--with-config-file-path=#{etc}/php/#{php_version}"
 Right: `args << "--with-config-file-path=#{etc}/php/#{version.to_s.split(".")[0..1].join(".")}"`
+
+### Useless assignment to variable
+
+Homebrew style check `Lint/UselessAssignment` flags assignments where the variable
+is never read. Remove the assignment and use the expression inline.
+Wrong:
+```ruby
+libphp = if OS.mac?
+  lib/"libphp.dylib"
+else
+  lib/"libphp.so"
+end
+assert_path_exists libphp, "message"
+```
+Right:
+```ruby
+assert_path_exists (if OS.mac?
+  lib/"libphp.dylib"
+else
+  lib/"libphp.so"
+end), "message"
+```
+
+### Remove dead code from examples in QWEN.md
+
+Style checks apply to QWEN.md code blocks too.
+Do not leave dead assignments or variables in Right examples.
+
+### macOS SDK path requires `--with-os-sdkpath` for embed SAPI
+
+PHP embed SAPI build on macOS needs `--with-os-sdkpath=#{MacOS.sdk_path_if_needed}`
+so the build system finds system headers and libraries inside the SDK, not `/usr`.
+Without this flag, `configure` picks up host system paths and the build fails
+with missing-header errors on clean runners.
 
 ### Every formula needs a `test do` block
 
@@ -303,6 +356,25 @@ Remove: `--enable-fpm`, `--with-fpm-user`, `--with-fpm-group`,
 Always add a `.gitignore` to new or restructured repositories.
 Include at minimum: `DS_Store`, editor swap files, `vendor/`, `.bundle/`,
 `brew test-bot` artefacts (`/test-bot/`, `/brew-logs/`).
+
+### `gh run watch` requires a run ID in non-interactive mode
+
+When running `gh run watch` from a script or background process, always pass
+the run ID explicitly. Without it, `gh run watch` exits with code 1 and the
+message "run ID required when not running interactively".
+Use `gh run list --limit 1 --json databaseId` to get the latest run ID.
+
+### `brew test-bot` runs automatically on PRs
+
+`brew test-bot` is triggered by the `pull_request` event in `main.yml`.
+You do not need to run it manually after pushing a PR branch.
+Use `gh pr checks` to see the current status.
+
+### Force-push rewrites the CI run
+
+After `git push --force` to a PR branch, GitHub creates a new CI run.
+The old run ID is no longer relevant. Always check the latest run with
+`gh run list --limit 1`.
 
 ---
 
