@@ -231,8 +231,8 @@ Right: `def post_install_steps`
 ### Use `assert_path_exists` instead of `assert_predicate ... :exist?`
 
 Homebrew style check `FormulaAudit/AssertStatements` requires `assert_path_exists`.
-Wrong: `assert_predicate libphp, :exist?, "expected #{libphp} to be built"`
-Right: `assert_path_exists libphp, "expected #{libphp} to be built"`
+Wrong: `assert_predicate path, :exist?, "message"`
+Right: `assert_path_exists path, "message"`
 
 ### Avoid complex ternary operators
 
@@ -253,8 +253,8 @@ Homebrew style check `Style/AlignArguments` requires aligned arguments when they
 Wrong:
 ```ruby
 inreplace "build/autoconf.data",
-    "NXT_MODULESDIR='#{HOMEBREW_PREFIX}/lib/unit/modules'",
-    "NXT_MODULESDIR='#{lib}/unit/modules'"
+          "NXT_MODULESDIR='#{HOMEBREW_PREFIX}/lib/unit/modules'",
+          "NXT_MODULESDIR='#{lib}/unit/modules'"
 ```
 Right:
 ```ruby
