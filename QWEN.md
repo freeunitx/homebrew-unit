@@ -240,7 +240,7 @@ Homebrew style check `Homebrew/SimpleTernary` requires `if`/`else` for complex t
 Wrong: `libphp = OS.mac? ? lib/"libphp.dylib" : lib/"libphp.so"`
 Right:
 ```ruby
-libphp = if OS.mac?
+if OS.mac?
   lib/"libphp.dylib"
 else
   lib/"libphp.so"
@@ -253,14 +253,14 @@ Homebrew style check `Style/AlignArguments` requires aligned arguments when they
 Wrong:
 ```ruby
 inreplace "build/autoconf.data",
-          "NXT_MODULESDIR='#{HOMEBREW_PREFIX}/lib/unit/modules'",
-          "NXT_MODULESDIR='#{lib}/unit/modules'"
+             "NXT_MODULESDIR='#{HOMEBREW_PREFIX}/lib/unit/modules'",
+             "NXT_MODULESDIR='#{lib}/unit/modules'"
 ```
 Right:
 ```ruby
 inreplace "build/autoconf.data",
-          "NXT_MODULESDIR='#{HOMEBREW_PREFIX}/lib/unit/modules'",
-          "NXT_MODULESDIR='#{lib}/unit/modules'"
+             "NXT_MODULESDIR='#{HOMEBREW_PREFIX}/lib/unit/modules'",
+             "NXT_MODULESDIR='#{lib}/unit/modules'"
 ```
 
 ### Prefer `to_s` over string interpolation for single variables
