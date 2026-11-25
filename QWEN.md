@@ -75,6 +75,24 @@ Request its removal before merging any PR that touches the formula list.
 
 ---
 
+## Release tag history
+
+Tags in `freeunitx/homebrew-unit` fork (reverse chronological order).
+Source: `gh api repos/freeunitx/homebrew-unit/tags`.
+
+| Tag | Date | Subject |
+|---|---|---|
+| `1.33.0` | 2024-09-18 | Use modulesdir configure argument |
+| `1.32.1` | 2024-03-27 | Revert "Bump njs version to 0.8.3." |
+| `1.32.0` | 2024-02-28 | CI: Figure out if we need to build dependencies on pull requests |
+| `1.31.1` | 2023-10-19 | Add a new Alias that had to be in the previous change |
+| `1.31.0` | 2023-09-01 | Added unit-wasm formula |
+| `1.30.0` | 2023-05-11 | Fixed language modules builds |
+| `1.29.1` | 2023-02-28 | Fixed php-embed alias |
+| `1.28.0` | 2022-09-13 | Added files forgotten in previous commit |
+
+---
+
 ## Common formula patterns
 
 All module formulae share this structure:
