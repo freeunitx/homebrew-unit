@@ -74,7 +74,7 @@ class Unit < Formula
     bin.install "tools/unitc"
   end
 
-  def post_install
+  def post_install_steps
     (lib/"unit/modules").mkpath
     (var/"log/unit").mkpath
     (var/"run/unit").mkpath

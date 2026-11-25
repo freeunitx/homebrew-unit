@@ -184,8 +184,12 @@ class PhpEmbed < Formula
   end
 
   test do
-    libphp = OS.mac? ? lib/"libphp.dylib" : lib/"libphp.so"
-    assert_predicate libphp, :exist?, "expected #{libphp} to be built"
+    libphp = if OS.mac?
+      lib/"libphp.dylib"
+    else
+      lib/"libphp.so"
+    end
+    assert_path_exists libphp, "expected #{libphp} to be built"
   end
 end
 

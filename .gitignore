@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# Editor swap and temp files
+*~
+*.swp
+*.swo
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Ruby / bundler
+vendor/bundle/
+.bundle/
+Gemfile.lock
+
+# Homebrew / brew test-bot artefacts
+/test-bot/
+/brew-logs/
+
+# CI artefacts
+.github/old/
+
+# General OS / archive artefacts
+Thumbs.db

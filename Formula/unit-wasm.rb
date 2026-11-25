@@ -43,7 +43,7 @@ class UnitWasm < Formula
   test do
     assert_path_exists lib/"unit/modules", "wasm modules directory not found"
     Dir.glob(lib/"unit/modules/nxt_wasm*").each do |f|
-      assert_predicate f, :exist?, "expected wasm module #{f} to exist"
+      assert_path_exists f, "expected wasm module #{f} to exist"
     end
   end
 end
