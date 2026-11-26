@@ -101,3 +101,8 @@ jobs:
               ;;
           esac
           brew test-bot --only-formulae --testing-formulae="$formula"
+          # test-bot ignores linkage failures for formulae without bottles.
+          IFS=',' read -ra tested_formulae <<< "$formula"
+          for tested_formula in "${tested_formulae[@]}"; do
+            brew linkage --test "$tested_formula"
+          done

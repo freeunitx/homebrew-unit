@@ -147,6 +147,9 @@ then
     echo
     echo "==> Building ${name}"
     brew install --build-bottle "${TAP}/${name}" || status=1
+    echo
+    echo "==> brew linkage ${name}"
+    brew linkage --test "${TAP}/${name}" || status=1
     # The CI job runs the audit after the install. The audit checks the
     # files of the installed formula.
     echo

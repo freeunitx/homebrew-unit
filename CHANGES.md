@@ -58,6 +58,7 @@ The supported PHP series are 8.3, 8.4, and 8.5. The main project lists the same 
 
 ### Checks
 
+- **.github/workflows/main.yml**, **test/run-checks.sh**: run `brew linkage --test` directly after the build. `test-bot` can ignore this failure for a formula without a bottle and return success.
 - `eol/check.py`: the mode `--check` reported the file as stale on every run. It compared the date of the check with itself. The day counters change every day, so they did the same.
 - `eol/check.py`: the formulae of the tap no longer appear in the list of the packages. The script reads the names from the `Formula` and `Aliases` directories.
 - `eol/check.py`: the script retries a request when the Homebrew API answers with the code 503.

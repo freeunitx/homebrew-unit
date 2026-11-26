@@ -80,6 +80,8 @@ The `--build` flag builds the given formulae. The build takes about 10 minutes f
 docker run --rm -v "$PWD:/mnt/homebrew-unit:ro" homebrew-unit-test --build php-embed@8.3
 ```
 
+The build also runs `brew linkage --test`. The command fails when the formula has missing libraries or linkage to indirect dependencies. This explicit check is necessary because `test-bot` can ignore a linkage failure for a formula without a bottle and return success.
+
 ## Run the component check alone
 
 The component check needs only Python 3. It does not need Docker.
