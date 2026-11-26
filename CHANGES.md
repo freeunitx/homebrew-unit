@@ -31,6 +31,7 @@ The supported PHP series are 8.3, 8.4, and 8.5. The main project lists the same 
 
 ### Formula fixes
 
+- **php-embed.rb**, **php-embed@8.4.rb**, **php-embed@8.3.rb**: the Linux build no longer links `curl` and OpenSSL 4. It uses `zlib-ng-compat`, and pkg-config finds the keg-only `openssl@3`. The curl extension is built on macOS only.
 - **unit.rb**: renamed `post_install` → `post_install_steps` (current Homebrew DSL)
 - **unit-ruby.rb**: removed unnecessary string interpolation around `formula_opt_bin("gem")` call
 - **php-embed.rb**: replaced `assert_predicate …, :exist?` with `assert_path_exists` in test block

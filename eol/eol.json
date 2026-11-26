@@ -5,7 +5,7 @@
   "_date_format": "eol and supported_until use YYYY-MM-DD. days_left is the number of days from the check date to the date; a negative value means the deadline has passed.",
   "_source_homebrew": "https://formulae.brew.sh/api/formula/<name>.json",
   "_source_tap": "https://github.com/freeunitorg/homebrew-unit",
-  "_checked": "2026-11-25",
+  "_checked": "2026-11-26",
   "packages": {
     "argon2": {
       "current_version": "20190702",
@@ -266,8 +266,8 @@
         "unit-java.rb"
       ],
       "note": "The current LTS line. It replaces openjdk@11, which Homebrew deprecated on 2023-09-30. The FreeUnit main project tests the java module with Java 17, 21, 25, 26, and 27, so 21 is a verified target.",
-      "disable_date_in_days": 1770,
-      "deprecation_date_in_days": 675,
+      "disable_date_in_days": 1769,
+      "deprecation_date_in_days": 674,
       "status": "scheduled_for_disable"
     },
     "openldap": {
@@ -304,8 +304,8 @@
         "unit.rb"
       ],
       "note": "The 3.x LTS line. Homebrew deprecates it on 2030-04-08 and disables it on 2031-04-08. The FreeUnit main project treats 3.5.9 as the supported ceiling, so the tap can stay on openssl@3 until then.",
-      "disable_date_in_days": 1595,
-      "deprecation_date_in_days": 1230,
+      "disable_date_in_days": 1594,
+      "deprecation_date_in_days": 1229,
       "status": "scheduled_for_disable"
     },
     "pcre2": {
@@ -343,8 +343,8 @@
         "php-embed@8.3.rb"
       ],
       "note": "Pinned to the PHP series that php-embed@8.3 builds. The same rule as php@8.5 applies to the versioned tap formula.",
-      "disable_date_in_days": 767,
-      "deprecation_date_in_days": 401,
+      "disable_date_in_days": 766,
+      "deprecation_date_in_days": 400,
       "status": "scheduled_for_disable"
     },
     "php@8.4": {
@@ -357,8 +357,8 @@
         "php-embed@8.4.rb"
       ],
       "note": "Pinned to the PHP series that php-embed@8.4 builds. The same rule as php@8.5 applies to the versioned tap formula.",
-      "disable_date_in_days": 1132,
-      "deprecation_date_in_days": 767,
+      "disable_date_in_days": 1131,
+      "deprecation_date_in_days": 766,
       "status": "scheduled_for_disable"
     },
     "php@8.5": {
@@ -371,8 +371,8 @@
         "php-embed.rb"
       ],
       "note": "Pinned to the PHP series that the unversioned tap formula builds. The php module takes php-config from PATH, so the pin keeps the module headers and the embed library on the same PHP version. The unversioned php formula is at 8.6.0 and gives the module a different version.",
-      "disable_date_in_days": 1497,
-      "deprecation_date_in_days": 1132,
+      "disable_date_in_days": 1496,
+      "deprecation_date_in_days": 1131,
       "status": "scheduled_for_disable"
     },
     "pkg-config": {
@@ -412,8 +412,8 @@
       ],
       "note": "Deprecation follows the upstream Python release schedule. The FreeUnit main project ships 3.12 to 3.15 as supported runtime lines, so the tap can move when the module needs a newer interpreter.",
       "replacement": "python@3.15",
-      "disable_date_in_days": 1072,
-      "deprecation_date_in_days": 707,
+      "disable_date_in_days": 1071,
+      "deprecation_date_in_days": 706,
       "status": "scheduled_for_disable"
     },
     "re2c": {
@@ -515,8 +515,8 @@
       ],
       "status": "active"
     },
-    "zlib": {
-      "current_version": "1.4",
+    "zlib-ng-compat": {
+      "current_version": "2.3.3",
       "deprecated": false,
       "deprecation_date": null,
       "disabled": false,
