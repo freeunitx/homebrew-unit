@@ -83,16 +83,26 @@ jobs:
       - name: build ${{ matrix.formulae }}
         run: |
           formula=${{ matrix.formulae }}
-          case "$formula" in
+          # The tap name comes from the formula name. It works for the
+          # upstream tap and for a fork. The name of the formula alone must
+          # not be used, because the case patterns need the bare name.
+          tap="${formula%/*}"
+          name="${formula##*/}"
+          case "$name" in
             unit-php@*)
-              series="${formula##*@}"
-              formula="freeunitorg/unit/php-embed@$series,freeunitorg/unit/unit,$formula"
+              series="${name##*@}"
+              formula="$tap/php-embed@$series,$tap/unit,$formula"
               ;;
             unit-php)
-              formula="freeunitorg/unit/php-embed,freeunitorg/unit/unit,$formula"
+              formula="$tap/php-embed,$tap/unit,$formula"
               ;;
-            *unit-*)
-              formula="freeunitorg/unit/unit,$formula"
+            unit-*)
+              formula="$tap/unit,$formula"
               ;;
           esac
           brew test-bot --only-formulae --testing-formulae="$formula"
+          # test-bot ignores linkage failures for formulae without bottles.
+          IFS=',' read -ra tested_formulae <<< "$formula"
+          for tested_formula in "${tested_formulae[@]}"; do
+            brew linkage --test "$tested_formula"
+          done

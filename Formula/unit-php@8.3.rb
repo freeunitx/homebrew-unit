@@ -31,8 +31,8 @@ class UnitPhpAT83 < Formula
         "NXT_MODULESDIR='#{lib}/unit/modules'"
 
     system "./configure", "php",
-        "--config=#{Formula["php@8.3"].opt_bin}/php-config",
-        "--lib-path=#{Formula["php-embed@8.3"].opt_lib}",
+        "--config=#{formula_opt_bin("php@8.3")}/php-config",
+        "--lib-path=#{formula_opt_lib("php-embed@8.3")}",
         "--module=php83"
     system "make", "php83-install"
   end

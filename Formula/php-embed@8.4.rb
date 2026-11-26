@@ -6,23 +6,23 @@ class PhpEmbedAT84 < Formula
   mirror "https://fossies.org/linux/www/php-8.4.28.tar.xz"
   sha256 "0c8ec360e5dd8154f270b2fd50cd44ecc824e6ee39c85f911312b80d4daecd72"
   license "PHP-3.01"
-  keg_only :versioned_formula
 
   livecheck do
-    url "https://www.php.net/downloads"
-    regex(/href=.*?php[._-]v?(\d+(?:\.\d+)+)\.t/i)
+    url "https://www.php.net/downloads?source=Y"
+    regex(/href=.*?php[._-]v?(#{Regexp.escape(version.major_minor)}(?:\.\d+)*)\.t/i)
   end
 
   head do
-    url "https://github.com/php/php-src.git"
+    url "https://github.com/php/php-src.git", branch: "master"
 
     depends_on "bison" => :build # bison >= 3.0.0 required to generate parsers
     depends_on "re2c" => :build # required to generate PHP lexers
   end
 
+  keg_only :versioned_formula
+
   depends_on "pkgconf" => :build
   depends_on "argon2"
-  depends_on "curl"
   depends_on "freetds"
   depends_on "gd"
   depends_on "gettext"
@@ -48,12 +48,21 @@ class PhpEmbedAT84 < Formula
   uses_from_macos "libffi", since: :catalina
   uses_from_macos "libxml2"
   uses_from_macos "libxslt"
-  uses_from_macos "zlib"
 
   on_macos do
+    # The curl of homebrew-core is bound to OpenSSL 4. The whole stack must
+    # use one OpenSSL version, so the curl extension is built on macOS only.
+    depends_on "curl"
+
     # PHP build system incorrectly links system libraries
     # see https://github.com/php/php-src/issues/10680
     patch :DATA
+  end
+
+  on_linux do
+    # The built libphp links zlib-ng-compat. The homebrew-core php formula
+    # uses the same library on Linux.
+    depends_on "zlib-ng-compat"
   end
 
   def install
@@ -88,7 +97,7 @@ class PhpEmbedAT84 < Formula
     # system pkg-config missing
     ENV["KERBEROS_CFLAGS"] = " "
     if OS.mac?
-      ENV["SASL_CFLAGS"] = "-I#{MacOS.sdk_path_if_needed}/usr/include/sasl"
+      ENV["SASL_CFLAGS"] = "-I#{MacOS.sdk_path}/usr/include/sasl"
       ENV["SASL_LIBS"] = "-lsasl2"
     else
       ENV["SQLITE_CFLAGS"] = "-I#{formula_opt_include("sqlite")}"
@@ -96,9 +105,14 @@ class PhpEmbedAT84 < Formula
       ENV["BZIP_DIR"] = formula_opt_prefix("bzip2")
     end
 
+    # FreeUnit builds PHP against OpenSSL 3.x, see the php images in the
+    # pkg/docker directory of the FreeUnit repository. The openssl@3 formula
+    # is keg-only, so pkg-config would find the default openssl@4 instead.
+    ENV.prepend_path "PKG_CONFIG_PATH", formula_opt_lib("openssl@3")/"pkgconfig"
+
     # Each extension that is built on Mojave needs a direct reference to the
     # sdk path or it won't find the headers
-    headers_path = "=#{MacOS.sdk_path_if_needed}/usr" if OS.mac?
+    headers_path = "=#{MacOS.sdk_path}/usr" if OS.mac?
 
     args = %W[
       --prefix=#{prefix}
@@ -128,7 +142,6 @@ class PhpEmbedAT84 < Formula
       --enable-sysvshm
       --enable-embed=shared
       --with-bz2#{headers_path}
-      --with-curl
       --with-external-gd
       --with-external-pcre
       --with-ffi
@@ -164,8 +177,9 @@ class PhpEmbedAT84 < Formula
 
     if OS.mac?
       args << "--enable-dtrace"
+      args << "--with-curl"
       args << "--with-ldap-sasl"
-      args << "--with-os-sdkpath=#{MacOS.sdk_path_if_needed}"
+      args << "--with-os-sdkpath=#{MacOS.sdk_path}"
     else
       args << "--disable-dtrace"
       args << "--without-ldap-sasl"

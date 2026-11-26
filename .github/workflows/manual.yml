@@ -54,10 +54,19 @@ jobs:
         with:
           core: true
 
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
       - name: Build Unit Perl module
         run: |
           brew install --build-from-source perl
-          brew install --build-from-source Formula/unit-perl.rb
+          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/unit-perl
 
   build-unit-python3:
     name: Build Unit Python 3 module
@@ -74,9 +83,18 @@ jobs:
         with:
           core: true
 
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
       - name: Build Unit Python 3 module
         run:
-          brew install --build-from-source Formula/unit-python3.rb
+          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/unit-python3
 
   build-unit-java:
     name: Build Unit Java module
@@ -93,9 +111,18 @@ jobs:
         with:
           core: true
 
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
       - name: Build Unit Java module
         run:
-          brew install --build-from-source Formula/unit-java.rb
+          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/unit-java
 
   build-unit-ruby:
     name: Build Unit Ruby module
@@ -112,9 +139,18 @@ jobs:
         with:
           core: true
 
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
       - name: Build Unit Ruby module
         run:
-          brew install --build-from-source Formula/unit-ruby.rb
+          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/unit-ruby
 
   build-php-embed:
     name: Build PHP embed
@@ -131,11 +167,20 @@ jobs:
         with:
           core: true
 
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
       - name: Build PHP embed
         run:
-          brew install --build-from-source Formula/php-embed.rb
-          brew install --build-from-source Formula/php-embed@8.4.rb
-          brew install --build-from-source Formula/php-embed@8.3.rb
+          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/php-embed
+          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/php-embed@8.4
+          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/php-embed@8.3
 
   build-unit-php:
     name: Build Unit PHP module
@@ -152,9 +197,18 @@ jobs:
         with:
           core: true
 
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
       - name: Build Unit PHP module
         run:
-          brew install --build-from-source Formula/unit-php.rb
+          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/unit-php
 
   build-unit-php-8-4:
     name: Build Unit PHP 8.4 module
@@ -171,9 +225,18 @@ jobs:
         with:
           core: true
 
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
       - name: Build Unit PHP 8.4 module
         run:
-          brew install --build-from-source Formula/unit-php@8.4.rb
+          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/unit-php@8.4
 
   build-unit-php-8-3:
     name: Build Unit PHP 8.3 module
@@ -190,9 +253,18 @@ jobs:
         with:
           core: true
 
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
       - name: Build Unit PHP 8.3 module
         run:
-          brew install --build-from-source Formula/unit-php@8.3.rb
+          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/unit-php@8.3
 
   build-unit-wasm:
     name: Build Unit WASM module
@@ -209,6 +281,15 @@ jobs:
         with:
           core: true
 
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
       - name: Build Unit WASM module
         run:
-          brew install --build-from-source Formula/unit-wasm.rb
+          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/unit-wasm

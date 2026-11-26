@@ -20,6 +20,7 @@ import datetime
 import json
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -36,19 +37,44 @@ NJS_TAGS = "https://api.github.com/repos/freeunitorg/njs/tags"
 # homebrew-core aliases that have no formula of their own
 ALIASES = {"pkg-config": "pkgconf"}
 
-# formulae of this tap
-TAP_LOCAL = {"unit@1.37.2", "php-embed"}
-
 # fields that a human writes and the script must not touch
 HUMAN_FIELDS = ("note", "replacement", "source", "role", "revision")
+
+# fields that change every day, so they must not make the file stale
+VOLATILE_FIELDS = ("disable_date_in_days", "deprecation_date_in_days")
 
 USER_AGENT = "homebrew-unit-eol-check"
 
 
-def http_get(url: str) -> str:
+def http_get(url: str, attempts: int = 3) -> str:
+    """Read a URL. The API answers with 503 when it is busy, so retry it."""
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return response.read().decode("utf-8", "replace")
+    last_error = None
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                return response.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as error:
+            last_error = error
+            if error.code != 503:
+                raise
+        except urllib.error.URLError as error:
+            last_error = error
+        time.sleep(2 ** attempt)
+    raise last_error
+
+
+def tap_formula_names() -> set[str]:
+    """The names of the formulae that this tap provides.
+
+    A dependency on one of them is a link inside the tap. It is not a
+    package of homebrew-core, so the API has no data for it.
+    """
+    names = {path.stem for path in FORMULA_DIR.glob("*.rb")}
+    aliases = ROOT / "Aliases"
+    if aliases.is_dir():
+        names.update(entry.name for entry in aliases.iterdir())
+    return names
 
 
 def days_left(date_string: str | None) -> int | None:
@@ -67,6 +93,15 @@ def status_of(entry: dict) -> str:
     if entry.get("deprecation_date"):
         return "deprecated"
     return "active"
+
+
+def stable_packages(packages: dict) -> dict:
+    """Drop the fields that change every day."""
+    return {
+        name: {key: value for key, value in entry.items()
+               if key not in VOLATILE_FIELDS}
+        for name, entry in packages.items()
+    }
 
 
 def read_dependencies() -> dict[str, set[str]]:
@@ -91,8 +126,9 @@ def fetch_formula(name: str) -> dict:
 
 def fetch_packages(usage: dict[str, set[str]], previous: dict) -> dict:
     packages = {}
+    tap_names = tap_formula_names()
     for dependency in sorted(usage):
-        if dependency in TAP_LOCAL:
+        if dependency in tap_names:
             continue
         real = ALIASES.get(dependency, dependency)
         try:
@@ -123,9 +159,6 @@ def tap_formula_versions() -> dict[str, dict]:
     njs_tag = re.search(r'resource "njs".*?tag:\s+"([^"]+)"', unit_source, re.S).group(1)
     njs_revision = re.search(r'resource "njs".*?revision:\s+"([^"]+)"',
                              unit_source, re.S).group(1)
-    php_source = (FORMULA_DIR / "php-embed.rb").read_text()
-    php_version = re.search(r"php-(\d+\.\d+\.\d+)\.tar\.xz", php_source).group(1)
-    php_url = re.search(r'url "([^"]+php-[^"]+)"', php_source).group(1)
 
     unit_tags = json.loads(http_get(FREEUNIT_TAGS))
     release_tags = [t["name"] for t in unit_tags
@@ -134,11 +167,9 @@ def tap_formula_versions() -> dict[str, dict]:
 
     branch_version = re.search(r"NXT_VERSION=(\S+)",
                                 http_get(FREEUNIT_VERSION)).group(1)
-    php_series = ".".join(php_version.split(".")[:2])
-    core_series_version = fetch_formula(f"php@{php_series}")["current_version"]
     core_php = fetch_formula("php")["current_version"]
 
-    return {
+    formulae = {
         "unit": {
             "current_version": tag,
             "upstream_latest_tag": release_tags[0] if release_tags else None,
@@ -152,15 +183,28 @@ def tap_formula_versions() -> dict[str, dict]:
             "upstream_latest_tag": njs_tags[0] if njs_tags else None,
             "status": "current" if njs_tags and njs_tags[0] == njs_tag else "behind_upstream",
         },
-        "php-embed": {
-            "current_version": php_version,
-            "homebrew_core_php_series": f"php@{php_series}",
+    }
+
+    # Every php embed formula pins one PHP series. Compare each series with
+    # the formula of homebrew-core that has the same series.
+    for path in sorted(FORMULA_DIR.glob("php-embed*.rb")):
+        source = path.read_text()
+        match = re.search(r"php-(\d+\.\d+\.\d+)\.tar\.xz", source)
+        if not match:
+            continue
+        version = match.group(1)
+        series = ".".join(version.split(".")[:2])
+        core_series_version = fetch_formula(f"php@{series}")["current_version"]
+        formulae[path.stem] = {
+            "current_version": version,
+            "homebrew_core_php_series": f"php@{series}",
             "homebrew_core_php_series_version": core_series_version,
             "homebrew_core_php": core_php,
-            "status": "matches_core_php_series" if core_series_version == php_version
+            "status": "matches_core_php_series" if core_series_version == version
             else "differs_from_core_php_series",
-        },
-    }
+        }
+
+    return formulae
 
 
 def check_version_coherence() -> list[str]:
@@ -181,9 +225,9 @@ def check_version_coherence() -> list[str]:
         source = path.read_text()
         if f'depends_on "php-embed@{series}"' not in source:
             problems.append(f"{path.name}: must depend on php-embed@{series}")
-        if f'Formula["php-embed@{series}"]' not in source:
+        if f'formula_opt_lib("php-embed@{series}")' not in source:
             problems.append(f"{path.name}: must link the php-embed@{series} library")
-        if f'Formula["php@{series}"]' not in source:
+        if f'formula_opt_bin("php@{series}")' not in source:
             problems.append(f"{path.name}: must use the php@{series} php-config")
         module = "php" + series.replace(".", "")
         if f'"--module={module}"' not in source:
@@ -193,8 +237,7 @@ def check_version_coherence() -> list[str]:
 
     for path in sorted(FORMULA_DIR.glob("unit-php.rb")):
         source = path.read_text()
-        version = re.search(r'Formula\["php-embed"\]\.opt_lib', source)
-        if not version:
+        if 'formula_opt_lib("php-embed")' not in source:
             problems.append(f"{path.name}: must link the php-embed library")
         if '"--module=php"' not in source:
             problems.append(f"{path.name}: must set --module=php")
@@ -246,9 +289,8 @@ def main() -> int:
                   "deprecated": "deprecated"}.get(entry.get("status"), "")
         print(f"  {name:16} {entry.get('current_version', '-'):14} {marker}")
 
-    changed = (packages != previous_packages
-               or formulae != previous_formulae
-               or document["_checked"] != json.loads(EOL_FILE.read_text())["_checked"])
+    changed = (stable_packages(packages) != stable_packages(previous_packages)
+               or formulae != previous_formulae)
 
     if args.write:
         EOL_FILE.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n")

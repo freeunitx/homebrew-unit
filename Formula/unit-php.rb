@@ -31,8 +31,8 @@ class UnitPhp < Formula
         "NXT_MODULESDIR='#{lib}/unit/modules'"
 
     system "./configure", "php",
-        "--config=#{Formula["php@8.5"].opt_bin}/php-config",
-        "--lib-path=#{Formula["php-embed"].opt_lib}",
+        "--config=#{formula_opt_bin("php@8.5")}/php-config",
+        "--lib-path=#{formula_opt_lib("php-embed")}",
         "--module=php"
     system "make", "php-install"
   end

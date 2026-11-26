@@ -6,23 +6,23 @@ class PhpEmbedAT83 < Formula
   mirror "https://fossies.org/linux/www/php-8.3.37.tar.xz"
   sha256 "0237af84478b7a7649d3964153f1b8653d622550b846f56d63062de683fb86bb"
   license "PHP-3.01"
-  keg_only :versioned_formula
 
   livecheck do
-    url "https://www.php.net/downloads"
-    regex(/href=.*?php[._-]v?(\d+(?:\.\d+)+)\.t/i)
+    url "https://www.php.net/downloads?source=Y"
+    regex(/href=.*?php[._-]v?(#{Regexp.escape(version.major_minor)}(?:\.\d+)*)\.t/i)
   end
 
   head do
-    url "https://github.com/php/php-src.git"
+    url "https://github.com/php/php-src.git", branch: "master"
 
     depends_on "bison" => :build # bison >= 3.0.0 required to generate parsers
     depends_on "re2c" => :build # required to generate PHP lexers
   end
 
+  keg_only :versioned_formula
+
   depends_on "pkgconf" => :build
   depends_on "argon2"
-  depends_on "curl"
   depends_on "freetds"
   depends_on "gd"
   depends_on "gettext"
@@ -48,12 +48,21 @@ class PhpEmbedAT83 < Formula
   uses_from_macos "libffi", since: :catalina
   uses_from_macos "libxml2"
   uses_from_macos "libxslt"
-  uses_from_macos "zlib"
 
   on_macos do
+    # The curl of homebrew-core is bound to OpenSSL 4. The whole stack must
+    # use one OpenSSL version, so the curl extension is built on macOS only.
+    depends_on "curl"
+
     # PHP build system incorrectly links system libraries
     # see https://github.com/php/php-src/issues/10680
     patch :DATA
+  end
+
+  on_linux do
+    # The built libphp links zlib-ng-compat. The homebrew-core php formula
+    # uses the same library on Linux.
+    depends_on "zlib-ng-compat"
   end
 
   def install
@@ -61,11 +70,11 @@ class PhpEmbedAT83 < Formula
     system "./buildconf", "--force"
 
     inreplace "configure" do |s|
-      s.gsub! "$APXS_HTTPD -V 2>/dev/null | grep 'threaded:.*yes' >/dev/null 2>&1",
-              "false"
-      s.gsub! "APXS_LIBEXECDIR='$(INSTALL_ROOT)'$($APXS -q LIBEXECDIR)",
+      s.gsub! "APACHE_THREADED_MPM=`$APXS_HTTPD -V 2>/dev/null | grep 'threaded:.*yes'`",
+              "APACHE_THREADED_MPM="
+      s.gsub! "APXS_LIBEXECDIR='$(INSTALL_ROOT)'`$APXS -q LIBEXECDIR`",
               "APXS_LIBEXECDIR='$(INSTALL_ROOT)#{lib}/httpd/modules'"
-      s.gsub! "-z $($APXS -q SYSCONFDIR)",
+      s.gsub! "-z `$APXS -q SYSCONFDIR`",
               "-z ''"
       s.gsub! "${wl}-flat_namespace ${wl}-undefined ${wl}suppress",
               "${wl}-twolevel_namespace"
@@ -88,7 +97,7 @@ class PhpEmbedAT83 < Formula
     # system pkg-config missing
     ENV["KERBEROS_CFLAGS"] = " "
     if OS.mac?
-      ENV["SASL_CFLAGS"] = "-I#{MacOS.sdk_path_if_needed}/usr/include/sasl"
+      ENV["SASL_CFLAGS"] = "-I#{MacOS.sdk_path}/usr/include/sasl"
       ENV["SASL_LIBS"] = "-lsasl2"
     else
       ENV["SQLITE_CFLAGS"] = "-I#{formula_opt_include("sqlite")}"
@@ -96,9 +105,14 @@ class PhpEmbedAT83 < Formula
       ENV["BZIP_DIR"] = formula_opt_prefix("bzip2")
     end
 
+    # FreeUnit builds PHP against OpenSSL 3.x, see the php images in the
+    # pkg/docker directory of the FreeUnit repository. The openssl@3 formula
+    # is keg-only, so pkg-config would find the default openssl@4 instead.
+    ENV.prepend_path "PKG_CONFIG_PATH", formula_opt_lib("openssl@3")/"pkgconfig"
+
     # Each extension that is built on Mojave needs a direct reference to the
     # sdk path or it won't find the headers
-    headers_path = "=#{MacOS.sdk_path_if_needed}/usr" if OS.mac?
+    headers_path = "=#{MacOS.sdk_path}/usr" if OS.mac?
 
     args = %W[
       --prefix=#{prefix}
@@ -128,7 +142,6 @@ class PhpEmbedAT83 < Formula
       --enable-sysvshm
       --enable-embed=shared
       --with-bz2#{headers_path}
-      --with-curl
       --with-external-gd
       --with-external-pcre
       --with-ffi
@@ -164,8 +177,9 @@ class PhpEmbedAT83 < Formula
 
     if OS.mac?
       args << "--enable-dtrace"
+      args << "--with-curl"
       args << "--with-ldap-sasl"
-      args << "--with-os-sdkpath=#{MacOS.sdk_path_if_needed}"
+      args << "--with-os-sdkpath=#{MacOS.sdk_path}"
     else
       args << "--disable-dtrace"
       args << "--without-ldap-sasl"
