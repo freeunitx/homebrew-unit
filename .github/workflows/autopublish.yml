@@ -1,0 +1,42 @@
+name: Publish bottles on request
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  GH_REPO: ${{ github.repository }}
+  GH_NO_UPDATE_NOTIFIER: "1"
+  GH_PROMPT_DISABLED: "1"
+
+jobs:
+  autopublish:
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      checks: read
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Dispatch publish workflows
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          PULL_REQUESTS="$(gh pr list \
+            --state open \
+            --label build-complete \
+            --json number,isDraft \
+            --jq '.[] | select(.isDraft | not) | .number')"
+
+          for PR in ${PULL_REQUESTS}; do
+            if gh pr checks "${PR}"; then
+              gh workflow run publish-commit-bottles.yml \
+                --ref master \
+                -F pull_request="${PR}" \
+                -F workflow=main.yml
+            else
+              echo "Skipping pull request #${PR}: checks are not green"
+            fi
+          done

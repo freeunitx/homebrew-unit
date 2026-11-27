@@ -1,0 +1,101 @@
+name: Dispatch rebottle
+run-name: Rebuild bottles of ${{ inputs.formula }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      formula:
+        description: Formula name
+        required: true
+      timeout:
+        description: Build timeout in minutes
+        default: "90"
+        required: true
+      fail-fast:
+        description: Stop remaining runners after a failure
+        type: boolean
+        default: false
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  HOMEBREW_DEVELOPER: "1"
+  HOMEBREW_GITHUB_ACTIONS: "1"
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  HOMEBREW_RELOCATABLE_INSTALL_NAMES: "1"
+  DISPATCH_REBOTTLE_FORMULA: ${{ inputs.formula }}
+
+jobs:
+  bottle:
+    strategy:
+      fail-fast: ${{ inputs.fail-fast }}
+      matrix:
+        include:
+          - runner: macos-26
+            cleanup: true
+          - runner: macos-15
+            cleanup: true
+          - runner: ubuntu-24.04
+            cleanup: false
+            container:
+              image: ghcr.io/homebrew/brew:main
+              options: --user=linuxbrew
+            workdir: /github/home
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
+    timeout-minutes: ${{ fromJson(inputs.timeout) }}
+    defaults:
+      run:
+        shell: /bin/bash -e {0}
+        working-directory: ${{ matrix.workdir || github.workspace }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      BOTTLES_DIR: ${{ matrix.workdir || github.workspace }}/bottles
+    steps:
+      - name: Pre-test steps
+        uses: Homebrew/actions/pre-build@2026.11.23.1
+        with:
+          bottles-directory: ${{ env.BOTTLES_DIR }}
+          cleanup: ${{ matrix.cleanup }}
+
+      - name: Rebuild bottle
+        working-directory: ${{ env.BOTTLES_DIR }}
+        run: |
+          set -o pipefail
+          REPO="${GITHUB_REPOSITORY##*/}"
+          TAP_NAME="${REPO#homebrew-}"
+          TAP="${GITHUB_REPOSITORY_OWNER}/${TAP_NAME}"
+          ROOT_URL="https://ghcr.io/v2/${GITHUB_REPOSITORY_OWNER}/${TAP_NAME}"
+          brew test-bot \
+            --only-formulae \
+            --only-json-tab \
+            --skip-online-checks \
+            --skip-dependents \
+            --root-url="${ROOT_URL}" \
+            "${TAP}/${DISPATCH_REBOTTLE_FORMULA}" 2>&1 | tee test-bot.log
+
+      - name: Check the test-bot result
+        if: always()
+        working-directory: ${{ env.BOTTLES_DIR }}
+        run: |
+          if [[ ! -f test-bot.log ]]; then
+            echo "::error::test-bot did not produce a log"
+            exit 1
+          fi
+          if grep -qE "failed step ignored|^Error: .*failed step" test-bot.log; then
+            echo "::error::test-bot reported a failed step"
+            grep -E "failed step ignored|^Error: .*failed step|==> FAILED" test-bot.log
+            exit 1
+          fi
+
+      - name: Post-build steps
+        if: always()
+        uses: Homebrew/actions/post-build@2026.11.23.1
+        with:
+          runner: ${{ matrix.runner }}
+          cleanup: ${{ matrix.cleanup }}
+          bottles-directory: ${{ env.BOTTLES_DIR }}
+          logs-directory: ${{ format('{0}/logs', env.BOTTLES_DIR) }}

@@ -3,6 +3,10 @@ on:
   schedule:
     - cron:  '30 0 * * Mon'
   workflow_dispatch:
+
+permissions:
+  contents: read
+
 jobs:
   test-bot:
     name: Check syntax
@@ -64,9 +68,11 @@ jobs:
           echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
 
       - name: Build Unit Perl module
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
         run: |
           brew install --build-from-source perl
-          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/unit-perl
+          brew install --build-from-source "${TAP}"/unit-perl
 
   build-unit-python3:
     name: Build Unit Python 3 module
@@ -93,8 +99,10 @@ jobs:
           echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
 
       - name: Build Unit Python 3 module
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
         run:
-          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/unit-python3
+          brew install --build-from-source "${TAP}"/unit-python3
 
   build-unit-java:
     name: Build Unit Java module
@@ -121,8 +129,10 @@ jobs:
           echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
 
       - name: Build Unit Java module
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
         run:
-          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/unit-java
+          brew install --build-from-source "${TAP}"/unit-java
 
   build-unit-ruby:
     name: Build Unit Ruby module
@@ -149,8 +159,10 @@ jobs:
           echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
 
       - name: Build Unit Ruby module
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
         run:
-          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/unit-ruby
+          brew install --build-from-source "${TAP}"/unit-ruby
 
   build-php-embed:
     name: Build PHP embed
@@ -177,11 +189,13 @@ jobs:
           echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
 
       - name: Build PHP embed
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
         run: |
-          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/php-embed
-          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/php-embed@8.5
-          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/php-embed@8.4
-          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/php-embed@8.3
+          brew install --build-from-source "${TAP}"/php-embed
+          brew install --build-from-source "${TAP}"/php-embed@8.5
+          brew install --build-from-source "${TAP}"/php-embed@8.4
+          brew install --build-from-source "${TAP}"/php-embed@8.3
 
   build-unit-php:
     name: Build Unit PHP module
@@ -208,8 +222,10 @@ jobs:
           echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
 
       - name: Build Unit PHP module
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
         run:
-          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/unit-php
+          brew install --build-from-source "${TAP}"/unit-php
 
   build-unit-php-8-5:
     name: Build Unit PHP 8.5 module
@@ -236,8 +252,10 @@ jobs:
           echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
 
       - name: Build Unit PHP 8.5 module
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
         run:
-          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/unit-php@8.5
+          brew install --build-from-source "${TAP}"/unit-php@8.5
 
   build-unit-php-8-4:
     name: Build Unit PHP 8.4 module
@@ -264,8 +282,10 @@ jobs:
           echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
 
       - name: Build Unit PHP 8.4 module
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
         run:
-          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/unit-php@8.4
+          brew install --build-from-source "${TAP}"/unit-php@8.4
 
   build-unit-php-8-3:
     name: Build Unit PHP 8.3 module
@@ -292,8 +312,10 @@ jobs:
           echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
 
       - name: Build Unit PHP 8.3 module
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
         run:
-          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/unit-php@8.3
+          brew install --build-from-source "${TAP}"/unit-php@8.3
 
   build-unit-wasm:
     name: Build Unit WASM module
@@ -320,5 +342,7 @@ jobs:
           echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
 
       - name: Build Unit WASM module
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
         run:
-          brew install --build-from-source ${{ steps.set-tap.outputs.tap }}/unit-wasm
+          brew install --build-from-source "${TAP}"/unit-wasm
