@@ -1,0 +1,187 @@
+name: Publish and commit bottles
+
+on:
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: Pull request number
+        required: true
+      workflow:
+        description: Workflow that produced the bottles
+        type: choice
+        options:
+          - main.yml
+          - dispatch-build-bottle.yml
+          - dispatch-rebottle.yml
+        default: main.yml
+        required: true
+
+permissions: {}
+
+env:
+  PR: ${{ inputs.pull_request }}
+  WORKFLOW: ${{ inputs.workflow }}
+  HOMEBREW_DEVELOPER: "1"
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  GH_REPO: ${{ github.repository }}
+  GH_NO_UPDATE_NOTIFIER: "1"
+  GH_PROMPT_DISABLED: "1"
+
+concurrency:
+  group: publish-bottles-${{ inputs.pull_request }}
+  cancel-in-progress: false
+
+jobs:
+  precheck:
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      checks: read
+      contents: read
+      pull-requests: read
+    outputs:
+      run-id: ${{ steps.checks.outputs.run-id }}
+      head-sha: ${{ steps.checks.outputs.head-sha }}
+    steps:
+      - name: Check pull request and artifacts
+        id: checks
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          STATE="$(gh pr view "${PR}" --json state --jq '.state')"
+          if [[ "${STATE}" != "OPEN" ]]; then
+            echo "::error::Pull request #${PR} is not open"
+            exit 1
+          fi
+
+          # Only main.yml sets the label. A dispatch workflow has no pull
+          # request context, so its result is checked by the run below.
+          if [[ "${WORKFLOW}" == "main.yml" ]]; then
+            if ! gh pr view "${PR}" --json labels --jq '.labels[].name' | grep -Fxq "build-complete"; then
+              echo "::error::Pull request #${PR} has no build-complete label"
+              exit 1
+            fi
+          fi
+
+          gh pr checks "${PR}"
+
+          HEAD_SHA="$(gh pr view "${PR}" --json headRefOid --jq '.headRefOid')"
+          # `brew pr-pull` takes the artifacts from the newest run of the
+          # workflow. The newest completed run must therefore be the
+          # successful one. An older successful run is not enough.
+          RUN="$(gh run list \
+            --workflow "${WORKFLOW}" \
+            --commit "${HEAD_SHA}" \
+            --limit 100 \
+            --json databaseId,status,conclusion \
+            --jq 'map(select(.status == "completed")) | .[0] // empty')"
+          if [[ -z "${RUN}" ]]; then
+            echo "::error::No completed ${WORKFLOW} run found for ${HEAD_SHA}"
+            exit 1
+          fi
+          RUN_ID="$(jq -r '.databaseId' <<< "${RUN}")"
+          RUN_CONCLUSION="$(jq -r '.conclusion' <<< "${RUN}")"
+          if [[ "${RUN_CONCLUSION}" != "success" ]]; then
+            echo "::error::The newest ${WORKFLOW} run ${RUN_ID} for ${HEAD_SHA} concluded with ${RUN_CONCLUSION}"
+            exit 1
+          fi
+
+          ARTIFACTS="$(gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.expired == false and (.name | startswith("bottles_"))) | .name')"
+          if [[ -z "${ARTIFACTS}" ]]; then
+            echo "::error::Run ${RUN_ID} has no bottle artifacts"
+            exit 1
+          fi
+
+          echo "run-id=${RUN_ID}" >> "${GITHUB_OUTPUT}"
+          echo "head-sha=${HEAD_SHA}" >> "${GITHUB_OUTPUT}"
+          echo "Verified bottle artifacts in run ${RUN_ID}"
+
+  upload:
+    needs: precheck
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: write
+      packages: write
+      pull-requests: write
+    container:
+      image: ghcr.io/homebrew/brew:main
+    defaults:
+      run:
+        shell: bash
+    env:
+      RUN_ID: ${{ needs.precheck.outputs.run-id }}
+      HEAD_SHA: ${{ needs.precheck.outputs.head-sha }}
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@2026.11.23.1
+        with:
+          core: true
+          cask: false
+
+      - name: Configure Git user
+        uses: Homebrew/actions/git-user-config@2026.11.23.1
+        with:
+          username: BrewTestBot
+
+      - name: Check that the verified run is still the newest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # A new run of the workflow for the same commit can finish between
+          # the precheck and this job. `brew pr-pull` would take its
+          # artifacts, so the publication stops instead.
+          NEWEST_RUN_ID="$(gh run list \
+            --workflow "${WORKFLOW}" \
+            --commit "${HEAD_SHA}" \
+            --limit 100 \
+            --json databaseId,status \
+            --jq 'map(select(.status == "completed")) | .[0].databaseId // empty')"
+          if [[ "${NEWEST_RUN_ID}" != "${RUN_ID}" ]]; then
+            echo "::error::The newest ${WORKFLOW} run for ${HEAD_SHA} is ${NEWEST_RUN_ID}, but precheck verified ${RUN_ID}"
+            exit 1
+          fi
+
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REPO="${GITHUB_REPOSITORY##*/}"
+          TAP_NAME="${REPO#homebrew-}"
+          echo "tap=${GITHUB_REPOSITORY_OWNER}/${TAP_NAME}" >> "${GITHUB_OUTPUT}"
+          echo "root-url=https://ghcr.io/v2/${GITHUB_REPOSITORY_OWNER}/${TAP_NAME}" >> "${GITHUB_OUTPUT}"
+
+      - name: Pull bottles
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_GITHUB_PACKAGES_USER: ${{ github.repository_owner }}
+          HOMEBREW_GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAP: ${{ steps.set-tap.outputs.tap }}
+          ROOT_URL: ${{ steps.set-tap.outputs.root-url }}
+        run: |
+          brew pr-pull \
+            --debug \
+            --clean \
+            --workflows="${WORKFLOW}" \
+            --tap="${TAP}" \
+            --root-url="${ROOT_URL}" \
+            --head-sha="${HEAD_SHA}" \
+            "${PR}"
+
+      - name: Merge pull request
+        working-directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash .github/scripts/retry.sh 10 10 \
+            gh pr merge "${PR}" --auto --delete-branch --rebase
+
+      - name: Push commits
+        uses: Homebrew/actions/git-try-push@2026.11.23.1
+        with:
+          directory: ${{ steps.set-up-homebrew.outputs.repository-path }}
+          token: ${{ secrets.GITHUB_TOKEN }}
