@@ -1,0 +1,219 @@
+name: brew test-bot
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  HOMEBREW_DEVELOPER: "1"
+  HOMEBREW_GITHUB_ACTIONS: "1"
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  HOMEBREW_RELOCATABLE_INSTALL_NAMES: "1"
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check-generate:
+    # The job checks the syntax of the formulae and builds the matrix. The
+    # checks do not depend on the operating system. The job runs on Linux,
+    # because the pool of the macOS runners is often full. A job that waits
+    # for a runner for 15 minutes is cancelled by GitHub.
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.generate-matrix.outputs.matrix }}
+      testing_formulae: ${{ steps.formulae-detect.outputs.testing_formulae }}
+      added_formulae: ${{ steps.formulae-detect.outputs.added_formulae }}
+      deleted_formulae: ${{ steps.formulae-detect.outputs.deleted_formulae }}
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@2026.11.23.1
+        with:
+          core: true
+
+      - name: Cache Homebrew Bundler RubyGems
+        id: cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.set-up-homebrew.outputs.gems-path }}
+          key: ${{ runner.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
+          restore-keys: ${{ runner.os }}-rubygems-
+
+      - name: Install Homebrew Bundler RubyGems
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: brew install-bundler-gems
+
+      - run: brew test-bot --only-tap-syntax
+
+      - run: brew test-bot --only-formulae-detect
+        id: formulae-detect
+
+      - name: generate matrix
+        id: generate-matrix
+        env:
+          TESTING_FORMULAE: ${{ steps.formulae-detect.outputs.testing_formulae }}
+        run: |
+          JSON="{\"include\":["
+          for os in macos-26 macos-15 ubuntu-24.04; do
+            while IFS= read -r formula; do
+              [[ -z "${formula}" ]] && continue
+              JSON="$JSON$( jq -nRr '( $ARGS.positional[] | {
+                os: $os,
+                formulae: .,
+                cleanup: ($os != "ubuntu-24.04"),
+                container: (if $os == "ubuntu-24.04" then {
+                  image: "ghcr.io/homebrew/brew:main",
+                  options: "--user=linuxbrew"
+                } else null end),
+                workdir: (if $os == "ubuntu-24.04" then "/github/home" else null end)
+              }) | tojson' --arg os "$os" --args "$formula" ),"
+            done < <(echo "${TESTING_FORMULAE}" | tr ',' ' ')
+          done
+
+          if [[ "$JSON" == *, ]]; then
+            JSON="${JSON%?}"
+          fi
+          JSON="$JSON]}"
+          echo "$JSON"
+          echo "matrix=$JSON" >> "$GITHUB_OUTPUT"
+
+  set-environment:
+    runs-on: ubuntu-24.04
+    needs: check-generate
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      syntax-only: ${{ steps.check-labels.outputs.syntax-only }}
+      fail-fast: ${{ steps.check-labels.outputs.fail-fast }}
+      timeout-minutes: ${{ steps.check-labels.outputs.timeout-minutes }}
+      test-bot-formulae-args: ${{ steps.check-labels.outputs.test-bot-formulae-args }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check for CI labels
+        id: check-labels
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          SCRIPTS_PATH: .github/scripts
+          TESTING_FORMULAE: ${{ needs.check-generate.outputs.testing_formulae }}
+          ADDED_FORMULAE: ${{ needs.check-generate.outputs.added_formulae }}
+          DELETED_FORMULAE: ${{ needs.check-generate.outputs.deleted_formulae }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const path = require('path')
+            const script = require(path.resolve(`${process.env.SCRIPTS_PATH}/environment.js`))
+            const formula_detect = {
+              testing_formulae: process.env.TESTING_FORMULAE || '',
+              added_formulae: process.env.ADDED_FORMULAE || '',
+              deleted_formulae: process.env.DELETED_FORMULAE || ''
+            }
+            try {
+              await script({github, context, core}, formula_detect)
+            } catch (error) {
+              core.setFailed(error.message)
+            }
+
+  build-formulae:
+    name: ${{ matrix.os }}, ${{ matrix.formulae }}
+    needs:
+      - check-generate
+      - set-environment
+    if: >-
+      needs.check-generate.outputs.testing_formulae != '' &&
+      needs.set-environment.outputs.syntax-only != 'true'
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }} # zizmor: ignore[unpinned-images]
+    timeout-minutes: ${{ fromJson(needs.set-environment.outputs.timeout-minutes) }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.check-generate.outputs.matrix) }}
+    defaults:
+      run:
+        shell: /bin/bash -e {0}
+        working-directory: ${{ matrix.workdir || github.workspace }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      BOTTLES_DIR: ${{ matrix.workdir || github.workspace }}/bottles
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@2026.11.23.1
+        with:
+          core: true
+          cask: false
+
+      - name: Cache Homebrew Bundler RubyGems
+        id: cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.set-up-homebrew.outputs.gems-path }}
+          key: ${{ runner.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
+          restore-keys: ${{ runner.os }}-rubygems-
+
+      - name: Install Homebrew Bundler RubyGems
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: brew install-bundler-gems
+
+      - name: Pre-test steps
+        uses: Homebrew/actions/pre-build@2026.11.23.1
+        with:
+          bottles-directory: ${{ env.BOTTLES_DIR }}
+          cleanup: ${{ matrix.cleanup }}
+
+      - name: build ${{ matrix.formulae }}
+        working-directory: ${{ env.BOTTLES_DIR }}
+        env:
+          TEST_BOT_FORMULAE_ARGS: ${{ needs.set-environment.outputs.test-bot-formulae-args }}
+        run: |
+          set -o pipefail
+          brew test-bot ${TEST_BOT_FORMULAE_ARGS} 2>&1 | tee test-bot.log
+
+      - name: check the test-bot result
+        if: always()
+        working-directory: ${{ env.BOTTLES_DIR }}
+        run: |
+          # The test-bot ignores a failed step of a formula without a bottle,
+          # so the job stays green. Its summary names the failed step.
+          if [[ ! -f test-bot.log ]]; then
+            echo "::error::test-bot did not produce a log"
+            exit 1
+          fi
+          if grep -qE "failed step ignored|^Error: .*failed step" test-bot.log
+          then
+            echo "::error::test-bot reported a failed step"
+            grep -E "failed step ignored|^Error: .*failed step|==> FAILED" test-bot.log
+            exit 1
+          fi
+
+      - name: Post-build steps
+        if: always()
+        uses: Homebrew/actions/post-build@2026.11.23.1
+        with:
+          runner: ${{ matrix.os }}
+          cleanup: ${{ matrix.cleanup }}
+          bottles-directory: ${{ env.BOTTLES_DIR }}
+          logs-directory: ${{ format('{0}/logs', env.BOTTLES_DIR) }}
+
+  label:
+    needs: build-formulae
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Add build-complete label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr edit "${{ github.event.pull_request.number }}" --add-label "build-complete"

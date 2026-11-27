@@ -1,0 +1,348 @@
+name: Rebuild everything
+on:
+  schedule:
+    - cron:  '30 0 * * Mon'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-bot:
+    name: Check syntax
+    runs-on: macos-26
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@2026.11.23.1
+        with:
+          core: true
+
+      - run: brew test-bot --only-cleanup-before
+
+      - run: brew test-bot --only-setup
+
+      - run: brew test-bot --only-tap-syntax
+
+  build-unit:
+    name: Build Unit
+    needs: test-bot
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, macos-26]
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@2026.11.23.1
+        with:
+          core: true
+
+      - name: Build Unit
+        run:
+          brew install --build-from-source unit
+
+  build-unit-perl:
+    name: Build Unit Perl module
+    needs: build-unit
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, macos-26]
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@2026.11.23.1
+        with:
+          core: true
+
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Unit Perl module
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
+        run: |
+          brew install --build-from-source perl
+          brew install --build-from-source "${TAP}"/unit-perl
+
+  build-unit-python3:
+    name: Build Unit Python 3 module
+    needs: build-unit
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, macos-26]
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@2026.11.23.1
+        with:
+          core: true
+
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Unit Python 3 module
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
+        run:
+          brew install --build-from-source "${TAP}"/unit-python3
+
+  build-unit-java:
+    name: Build Unit Java module
+    needs: build-unit
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, macos-26]
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@2026.11.23.1
+        with:
+          core: true
+
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Unit Java module
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
+        run:
+          brew install --build-from-source "${TAP}"/unit-java
+
+  build-unit-ruby:
+    name: Build Unit Ruby module
+    needs: build-unit
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, macos-26]
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@2026.11.23.1
+        with:
+          core: true
+
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Unit Ruby module
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
+        run:
+          brew install --build-from-source "${TAP}"/unit-ruby
+
+  build-php-embed:
+    name: Build PHP embed
+    needs: build-unit
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, macos-26]
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@2026.11.23.1
+        with:
+          core: true
+
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
+      - name: Build PHP embed
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
+        run: |
+          brew install --build-from-source "${TAP}"/php-embed
+          brew install --build-from-source "${TAP}"/php-embed@8.5
+          brew install --build-from-source "${TAP}"/php-embed@8.4
+          brew install --build-from-source "${TAP}"/php-embed@8.3
+
+  build-unit-php:
+    name: Build Unit PHP module
+    needs: build-unit
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, macos-26]
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@2026.11.23.1
+        with:
+          core: true
+
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Unit PHP module
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
+        run:
+          brew install --build-from-source "${TAP}"/unit-php
+
+  build-unit-php-8-5:
+    name: Build Unit PHP 8.5 module
+    needs: build-unit
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, macos-26]
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@2026.11.23.1
+        with:
+          core: true
+
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Unit PHP 8.5 module
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
+        run:
+          brew install --build-from-source "${TAP}"/unit-php@8.5
+
+  build-unit-php-8-4:
+    name: Build Unit PHP 8.4 module
+    needs: build-unit
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, macos-26]
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@2026.11.23.1
+        with:
+          core: true
+
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Unit PHP 8.4 module
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
+        run:
+          brew install --build-from-source "${TAP}"/unit-php@8.4
+
+  build-unit-php-8-3:
+    name: Build Unit PHP 8.3 module
+    needs: build-unit
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, macos-26]
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@2026.11.23.1
+        with:
+          core: true
+
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Unit PHP 8.3 module
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
+        run:
+          brew install --build-from-source "${TAP}"/unit-php@8.3
+
+  build-unit-wasm:
+    name: Build Unit WASM module
+    needs: build-unit
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, macos-26]
+    steps:
+      - name: Set up Homebrew
+        id: set-up-homebrew
+        uses: Homebrew/actions/setup-homebrew@2026.11.23.1
+        with:
+          core: true
+
+      - name: Set tap name
+        id: set-tap
+        run: |
+          REMOTE_URL="$(git -c safe.directory='*' remote get-url origin)"
+          OWNER="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+([^/]+)/.*$#\1#')"
+          REPO="$(echo "${REMOTE_URL}" | sed -E 's#^.*github\.com[:/]+[^/]+/([^/]+)$#\1#')"
+          TAP="${OWNER}/${REPO#homebrew-}"
+          echo "tap=${TAP}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Unit WASM module
+        env:
+          TAP: ${{ steps.set-tap.outputs.tap }}
+        run:
+          brew install --build-from-source "${TAP}"/unit-wasm
